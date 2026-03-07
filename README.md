@@ -375,6 +375,89 @@ void main() {
 }
 ```
 
+#### Conditionally resolve [Result] by `Failure` value with `recoverWhen`
+
+Returns the encapsulated `Result` of the given transform function
+applied to the encapsulated a `Failure` **only if the test predicate returns `true`**.
+Otherwise, returns the original `Failure` unchanged.
+If this is a `Success`, returns it unchanged.
+
+```dart
+void main() {
+    final result = getNumberResult()
+        .recoverWhen(
+          (f) => f is TimeoutException,
+          (f) => Success('Recovered from timeout!'),
+        );
+    // Only recovers TimeoutException, other failures propagate unchanged
+}
+```
+
+#### Inspect a [Result] with `tap`
+
+Performs the given action on the `Result` regardless of whether it
+is a `Success` or `Failure`. Returns the original `Result` unchanged.
+Useful for debugging and logging intermediate states in a chain.
+
+```dart
+void main() {
+    final result = getNumberResult()
+        .tap((r) => print('Step 1: $r'))
+        .flatMap((s) => validateNumber(s))
+        .tap((r) => print('Step 2: $r'));
+}
+```
+
+#### Filter a `Success` value with `filter`
+
+Returns this `Result` if it is a `Failure` or if the predicate
+returns `true` for the encapsulated `Success` value.
+Otherwise, returns a `Failure` created by `orElse`.
+
+```dart
+void main() {
+    final result = getNumberResult()
+        .filter(
+          (n) => n > 0,
+          (n) => Exception('$n is not positive'),
+        );
+}
+```
+
+#### Combine two [Result]s with `zip`
+
+Combines this `Result` with another into a single `Result`
+containing a `Record` of both success values.
+If either is a `Failure`, returns the first `Failure` encountered.
+
+```dart
+void main() {
+    final name = Success<String, Exception>('Jacob');
+    final age = Success<int, Exception>(25);
+
+    final combined = name.zip(age);
+    // Success(('Jacob', 25))
+
+    combined.map((record) {
+      final (n, a) = record;
+      return 'Name: $n, Age: $a';
+    });
+}
+```
+
+#### Flatten a nested [Result] with `flatten`
+
+Unwraps a `ResultDart<ResultDart<S, F>, F>` into a `ResultDart<S, F>`,
+removing one level of nesting.
+
+```dart
+void main() {
+    final nested = Success<ResultDart<int, String>, String>(Success(42));
+    final flat = nested.flatten();
+    // Success(42)
+}
+```
+
 #### Add a pure `Success` value with `pure`
 
 Change the [Success] value.
@@ -496,10 +579,80 @@ e 🚧 para o que está sendo trabalhado ---->
 - ✅ AsyncResult`s operators(map, flatMap, mapError, flatMapError, swap, when, fold, getOrNull, exceptionOrNull, isSuccess, isError).
 - ✅ Auxiliar functions (id, identity, success, failure).
 - ✅ Unit type.
+- ✅ `tap` operator for debugging and logging.
+- ✅ `filter` operator for conditional Success-to-Failure conversion.
+- ✅ `zip` operator for combining two Results using Dart 3 Records.
+- ✅ `flatten` operator for unwrapping nested Results.
+- ✅ `recoverWhen` operator for conditional recovery by predicate.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
+## Best Practices
 
+### Scoped Recovery
+
+When chaining many operations with `recover`, errors from earlier steps may be accidentally recovered. To avoid this, group related operations into their own functions:
+
+```dart
+// ❌ Avoid: recover may catch unrelated errors
+fetchUser()
+  .flatMap(fetchOrders)
+  .flatMap(validateOrders)
+  .recover(fallbackOrders)  // may recover a fetchUser error!
+  .flatMap(processOrders);
+
+// ✅ Prefer: scope the recovery to the relevant operations
+AsyncResult<Orders> getValidOrders() {
+  return fetchUser()
+    .flatMap(fetchOrders)
+    .flatMap(validateOrders)
+    .recover(fallbackOrders); // only recovers validation/fetch errors
+}
+
+getValidOrders()
+  .flatMap(processOrders);
+```
+
+Alternatively, use `recoverWhen` to recover only specific error types:
+
+```dart
+fetchUser()
+  .flatMap(fetchOrders)
+  .flatMap(validateOrders)
+  .recoverWhen(
+    (f) => f is ValidationException,
+    (f) => fallbackOrders(),
+  )
+  .flatMap(processOrders);
+```
+
+### Custom Exceptions with StackTrace
+
+The `Failure` type is a generic container and does not capture stack traces.
+If you need stack traces for debugging, capture them in your custom Exception classes:
+
+```dart
+class AppException implements Exception {
+  final String message;
+  final StackTrace stackTrace;
+
+  AppException(this.message) : stackTrace = StackTrace.current;
+
+  @override
+  String toString() => 'AppException: $message\n$stackTrace';
+}
+```
+
+This way, the stack trace travels with the error through the Result chain,
+and `tap` can be used to inspect it:
+
+```dart
+fetchData()
+  .tap((r) => print(r))  // prints "Failure(AppException: ...)" with stack
+  .flatMap(process);
+```
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 <!-- CONTRIBUTING -->
 ## Contributing

@@ -38,3 +38,52 @@ extension ResultObjectExtension<W extends Object> on W {
     return Success<W, F>(this);
   }
 }
+
+/// Extension on `Future<void>` to convert it into an `AsyncResultDart<Unit, Exception>`.
+///
+/// This extension provides a method `toAsyncResult` that wraps the completion
+/// of a `Future<void>` into a `Success` or `Failure` object. If the `Future`
+/// completes successfully, a `Success` containing `unit` is returned. If an
+/// exception occurs, the exception is wrapped in a `Failure`.
+///
+/// Example usage:
+/// ```dart
+/// Future<void> future = Future.value();
+/// AsyncResultDart<Unit, Exception> result = await future.toAsyncResult();
+/// ```
+extension FutureResultExtensionVoid on Future<void> {
+  AsyncResultDart<Unit, Exception> toAsyncResult() async {
+    try {
+      await this;
+      return Success(unit);
+    } on Exception catch (e) {
+      return Failure(e);
+    }
+  }
+}
+
+/// Extension to flatten a nested [ResultDart] into a single [ResultDart].
+///
+/// Unwraps `ResultDart<ResultDart<S, F>, F>` into `ResultDart<S, F>`.
+extension FlattenResultExtension<S extends Object, F extends Object>
+    on ResultDart<ResultDart<S, F>, F> {
+  /// Flattens a nested [ResultDart] by removing one level of nesting.
+  ///
+  /// If this is `Success(Success(value))`, returns `Success(value)`.
+  /// If this is `Success(Failure(error))`, returns `Failure(error)`.
+  /// If this is `Failure(error)`, returns `Failure(error)`.
+  ResultDart<S, F> flatten() => fold((inner) => inner, Failure.new);
+}
+
+/// Extension to flatten a nested [AsyncResultDart] into a single
+/// [AsyncResultDart].
+///
+/// Unwraps `AsyncResultDart<ResultDart<S, F>, F>` into
+/// `AsyncResultDart<S, F>`.
+extension FlattenAsyncResultExtension<S extends Object, F extends Object>
+    on AsyncResultDart<ResultDart<S, F>, F> {
+  /// Flattens a nested [AsyncResultDart] by removing one level of nesting.
+  AsyncResultDart<S, F> flatten() {
+    return then((result) => result.fold((inner) => inner, Failure.new));
+  }
+}

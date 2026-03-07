@@ -1,3 +1,14 @@
+## [2.2.0] - 2026-03-07
+
+### Added
+- `tap` operator for debugging and logging intermediate states in a chain.
+- `filter` operator for conditional Success-to-Failure conversion.
+- `zip` operator for combining two Results using Dart 3 Records.
+- `flatten` operator (extension) for unwrapping nested Results.
+- `recoverWhen` operator for conditional recovery by predicate.
+- `toString()` override on `Success` and `Failure` for better debug output.
+- Best Practices section in README (scoped recovery, custom exceptions with stack trace).
+
 ## [2.1.1] - 2025-06-14
 
 - Fix linter problems.

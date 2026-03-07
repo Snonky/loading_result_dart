@@ -110,6 +110,34 @@ sealed class ResultDart<S extends Object, F extends Object> {
     G Function(S success) onSuccess,
     W Function(F failure) onFailure,
   );
+
+  /// Performs the given action on this [Result] regardless of whether it
+  /// is a [Success] or [Failure]. Returns the original [Result] unchanged.
+  ///
+  /// Useful for debugging and logging intermediate states in a chain.
+  ResultDart<S, F> tap(void Function(ResultDart<S, F> result) fn);
+
+  /// Returns this [Result] if it is a [Failure] or if the [test] predicate
+  /// returns `true` for the encapsulated [Success] value.
+  /// Otherwise, returns a [Failure] created by [orElse].
+  ResultDart<S, F> filter(
+    bool Function(S success) test,
+    F Function(S success) orElse,
+  );
+
+  /// Combines this [Result] with [other] into a single [Result]
+  /// containing a `Record` of both success values.
+  /// If either is a [Failure], returns the first [Failure] encountered.
+  ResultDart<(S, S2), F> zip<S2 extends Object>(ResultDart<S2, F> other);
+
+  /// Returns the encapsulated [Result] of the given [onFailure] function
+  /// applied to the encapsulated [Failure] value only if [test] returns `true`.
+  /// Otherwise, returns the original [Failure] unchanged.
+  /// If this is a [Success], returns it unchanged.
+  ResultDart<S, F> recoverWhen(
+    bool Function(F failure) test,
+    ResultDart<S, F> Function(F failure) onFailure,
+  );
 }
 
 /// Success Result.
@@ -149,6 +177,9 @@ final class Success<S extends Object, F extends Object> //
   bool operator ==(Object other) {
     return other is Success && other._success == _success;
   }
+
+  @override
+  String toString() => 'Success($_success)';
 
   @override
   W fold<W>(
@@ -259,6 +290,39 @@ final class Success<S extends Object, F extends Object> //
       (f) => Failure(failure),
     );
   }
+
+  @override
+  ResultDart<S, F> tap(void Function(ResultDart<S, F> result) fn) {
+    fn(this);
+    return this;
+  }
+
+  @override
+  ResultDart<S, F> filter(
+    bool Function(S success) test,
+    F Function(S success) orElse,
+  ) {
+    if (test(_success)) {
+      return this;
+    }
+    return Failure(orElse(_success));
+  }
+
+  @override
+  ResultDart<(S, S2), F> zip<S2 extends Object>(ResultDart<S2, F> other) {
+    return other.fold(
+      (s2) => Success((_success, s2)),
+      Failure.new,
+    );
+  }
+
+  @override
+  ResultDart<S, F> recoverWhen(
+    bool Function(F failure) test,
+    ResultDart<S, F> Function(F failure) onFailure,
+  ) {
+    return this;
+  }
 }
 
 /// Error Result.
@@ -295,6 +359,9 @@ final class Failure<S extends Object, F extends Object> //
   @override
   bool operator ==(Object other) => //
       other is Failure && other._failure == _failure;
+
+  @override
+  String toString() => 'Failure($_failure)';
 
   @override
   W fold<W>(
@@ -404,5 +471,35 @@ final class Failure<S extends Object, F extends Object> //
       (s) => Success(success),
       (f) => Failure(failure),
     );
+  }
+
+  @override
+  ResultDart<S, F> tap(void Function(ResultDart<S, F> result) fn) {
+    fn(this);
+    return this;
+  }
+
+  @override
+  ResultDart<S, F> filter(
+    bool Function(S success) test,
+    F Function(S success) orElse,
+  ) {
+    return this;
+  }
+
+  @override
+  ResultDart<(S, S2), F> zip<S2 extends Object>(ResultDart<S2, F> other) {
+    return Failure(_failure);
+  }
+
+  @override
+  ResultDart<S, F> recoverWhen(
+    bool Function(F failure) test,
+    ResultDart<S, F> Function(F failure) onFailure,
+  ) {
+    if (test(_failure)) {
+      return onFailure(_failure);
+    }
+    return this;
   }
 }

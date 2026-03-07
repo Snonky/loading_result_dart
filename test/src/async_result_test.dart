@@ -192,4 +192,150 @@ void main() {
       );
     });
   });
+
+  group('tap', () {
+    test('Success', () async {
+      ResultDart<int, String>? captured;
+      final result = await const Success<int, String>(0) //
+          .toAsyncResult()
+          .tap((r) => captured = r);
+
+      expect(result.getOrNull(), 0);
+      expect(captured, isA<Success<int, String>>());
+    });
+
+    test('Failure', () async {
+      ResultDart<int, String>? captured;
+      final result = await const Failure<int, String>('err') //
+          .toAsyncResult()
+          .tap((r) => captured = r);
+
+      expect(result.exceptionOrNull(), 'err');
+      expect(captured, isA<Failure<int, String>>());
+    });
+  });
+
+  group('filter', () {
+    test('Success passes test', () async {
+      final result = await const Success<int, String>(4) //
+          .toAsyncResult()
+          .filter((s) => s > 0, (s) => 'not positive');
+
+      expect(result.getOrNull(), 4);
+    });
+
+    test('Success fails test', () async {
+      final result = await const Success<int, String>(-1) //
+          .toAsyncResult()
+          .filter((s) => s > 0, (s) => 'not positive');
+
+      expect(result.isError(), isTrue);
+      expect(result.exceptionOrNull(), 'not positive');
+    });
+
+    test('Failure passthrough', () async {
+      final result = await const Failure<int, String>('err') //
+          .toAsyncResult()
+          .filter((s) => s > 0, (s) => 'not positive');
+
+      expect(result.exceptionOrNull(), 'err');
+    });
+  });
+
+  group('zip', () {
+    test('Success + Success', () async {
+      final result = await const Success<int, String>(1) //
+          .toAsyncResult()
+          .zip(const Success<String, String>('a'));
+
+      expect(result.getOrNull(), (1, 'a'));
+    });
+
+    test('Success + Failure', () async {
+      final result = await const Success<int, String>(1) //
+          .toAsyncResult()
+          .zip(const Failure<String, String>('err'));
+
+      expect(result.isError(), isTrue);
+      expect(result.exceptionOrNull(), 'err');
+    });
+
+    test('Failure + Success', () async {
+      final result = await const Failure<int, String>('err') //
+          .toAsyncResult()
+          .zip(const Success<String, String>('a'));
+
+      expect(result.isError(), isTrue);
+      expect(result.exceptionOrNull(), 'err');
+    });
+  });
+
+  group('flatten', () {
+    test('Success(Success)', () async {
+      final result = await Future.value(
+        const Success<ResultDart<int, String>, String>(Success(42)),
+      ).flatten();
+
+      expect(result.getOrNull(), 42);
+    });
+
+    test('Success(Failure)', () async {
+      final result = await Future.value(
+        const Success<ResultDart<int, String>, String>(Failure('inner')),
+      ).flatten();
+
+      expect(result.exceptionOrNull(), 'inner');
+    });
+
+    test('Failure', () async {
+      final result = await Future.value(
+        const Failure<ResultDart<int, String>, String>('outer'),
+      ).flatten();
+
+      expect(result.exceptionOrNull(), 'outer');
+    });
+  });
+
+  group('recoverWhen', () {
+    test('Success passthrough', () async {
+      final result = await const Success<int, String>(0) //
+          .toAsyncResult()
+          .recoverWhen(
+            (f) => true,
+            (f) => const Success(99),
+          );
+      expect(result.getOrThrow(), 0);
+    });
+
+    test('Failure with matching predicate', () async {
+      final result = await const Failure<int, String>('recoverable') //
+          .toAsyncResult()
+          .recoverWhen(
+            (f) => f == 'recoverable',
+            (f) => const Success(99),
+          );
+      expect(result.getOrThrow(), 99);
+    });
+
+    test('Failure with non-matching predicate', () async {
+      final result = await const Failure<int, String>('critical') //
+          .toAsyncResult()
+          .recoverWhen(
+            (f) => f == 'recoverable',
+            (f) => const Success(99),
+          );
+      expect(result.isError(), isTrue);
+      expect(result.exceptionOrNull(), 'critical');
+    });
+
+    test('Failure with async recovery', () async {
+      final result = await const Failure<int, String>('recoverable') //
+          .toAsyncResult()
+          .recoverWhen(
+            (f) => f == 'recoverable',
+            (f) async => const Success(99),
+          );
+      expect(result.getOrThrow(), 99);
+    });
+  });
 }

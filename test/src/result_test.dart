@@ -285,6 +285,147 @@ Given a success result,
       expect(result.getOrThrow(), 1);
     });
   });
+
+  group('toString', () {
+    test('Success', () {
+      const result = Success<int, String>(42);
+      expect(result.toString(), 'Success(42)');
+    });
+
+    test('Failure', () {
+      const result = Failure<int, String>('error');
+      expect(result.toString(), 'Failure(error)');
+    });
+  });
+
+  group('tap', () {
+    test('Success', () {
+      ResultDart<int, String>? captured;
+      final result = const Success<int, String>(0).tap((r) => captured = r);
+
+      expect(result.getOrNull(), 0);
+      expect(captured, isA<Success<int, String>>());
+    });
+
+    test('Failure', () {
+      ResultDart<int, String>? captured;
+      final result = const Failure<int, String>('err').tap((r) => captured = r);
+
+      expect(result.exceptionOrNull(), 'err');
+      expect(captured, isA<Failure<int, String>>());
+    });
+  });
+
+  group('filter', () {
+    test('Success passes test', () {
+      final result = const Success<int, String>(4) //
+          .filter((s) => s > 0, (s) => 'not positive');
+
+      expect(result.getOrNull(), 4);
+    });
+
+    test('Success fails test', () {
+      final result = const Success<int, String>(-1) //
+          .filter((s) => s > 0, (s) => 'not positive');
+
+      expect(result.isError(), isTrue);
+      expect(result.exceptionOrNull(), 'not positive');
+    });
+
+    test('Failure passthrough', () {
+      final result = const Failure<int, String>('err') //
+          .filter((s) => s > 0, (s) => 'not positive');
+
+      expect(result.exceptionOrNull(), 'err');
+    });
+  });
+
+  group('zip', () {
+    test('Success + Success', () {
+      const r1 = Success<int, String>(1);
+      const r2 = Success<String, String>('a');
+      final zipped = r1.zip(r2);
+
+      expect(zipped.getOrNull(), (1, 'a'));
+    });
+
+    test('Success + Failure', () {
+      const r1 = Success<int, String>(1);
+      const r2 = Failure<String, String>('err');
+      final zipped = r1.zip(r2);
+
+      expect(zipped.isError(), isTrue);
+      expect(zipped.exceptionOrNull(), 'err');
+    });
+
+    test('Failure + Success', () {
+      const r1 = Failure<int, String>('err');
+      const r2 = Success<String, String>('a');
+      final zipped = r1.zip(r2);
+
+      expect(zipped.isError(), isTrue);
+      expect(zipped.exceptionOrNull(), 'err');
+    });
+
+    test('Failure + Failure', () {
+      const r1 = Failure<int, String>('err1');
+      const r2 = Failure<String, String>('err2');
+      final zipped = r1.zip(r2);
+
+      expect(zipped.isError(), isTrue);
+      expect(zipped.exceptionOrNull(), 'err1');
+    });
+  });
+
+  group('flatten', () {
+    test('Success(Success)', () {
+      final result =
+          const Success<ResultDart<int, String>, String>(Success(42));
+      expect(result.flatten().getOrNull(), 42);
+    });
+
+    test('Success(Failure)', () {
+      final result = const Success<ResultDart<int, String>, String>(
+        Failure('inner'),
+      );
+      expect(result.flatten().exceptionOrNull(), 'inner');
+    });
+
+    test('Failure', () {
+      const result = Failure<ResultDart<int, String>, String>('outer');
+      expect(result.flatten().exceptionOrNull(), 'outer');
+    });
+  });
+
+  group('recoverWhen', () {
+    test('Success passthrough', () {
+      final result = const Success<int, String>(0) //
+          .recoverWhen(
+        (f) => true,
+        (f) => const Success(99),
+      );
+      expect(result.getOrThrow(), 0);
+    });
+
+    test('Failure with matching predicate', () {
+      final result = const Failure<int, String>('recoverable') //
+          .recoverWhen(
+        (f) => f == 'recoverable',
+        (f) => const Success(99),
+      );
+      expect(result.getOrThrow(), 99);
+    });
+
+    test('Failure with non-matching predicate', () {
+      final result = const Failure<int, String>('critical') //
+          .recoverWhen(
+        (f) => f == 'recoverable',
+        (f) => const Success(99),
+      );
+      expect(result.isError(), isTrue);
+      expect(result.exceptionOrNull(), 'critical');
+    });
+  });
 }
 
 ResultDart<Unit, MyException> getMockedSuccessResult() {

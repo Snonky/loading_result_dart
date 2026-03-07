@@ -164,6 +164,49 @@ extension AsyncResultDartExtension<S extends Object, F extends Object> //
   ) {
     return then((result) => result.mapFold(onSuccess, onError));
   }
+
+  /// Performs the given action on this [Result] regardless of whether it
+  /// is a [Success] or [Failure]. Returns the original [Result] unchanged.
+  ///
+  /// Useful for debugging and logging intermediate states in a chain.
+  AsyncResultDart<S, F> tap(void Function(ResultDart<S, F> result) fn) {
+    return then((result) => result.tap(fn));
+  }
+
+  /// Returns this [Result] if it is a [Failure] or if the [test] predicate
+  /// returns `true` for the encapsulated [Success] value.
+  /// Otherwise, returns a [Failure] created by [orElse].
+  AsyncResultDart<S, F> filter(
+    bool Function(S success) test,
+    F Function(S success) orElse,
+  ) {
+    return then((result) => result.filter(test, orElse));
+  }
+
+  /// Combines this [Result] with [other] into a single [Result]
+  /// containing a `Record` of both success values.
+  /// If either is a [Failure], returns the first [Failure] encountered.
+  AsyncResultDart<(S, S2), F> zip<S2 extends Object>(
+    ResultDart<S2, F> other,
+  ) {
+    return then((result) => result.zip(other));
+  }
+
+  /// Returns the encapsulated [Result] of the given [onFailure] function
+  /// applied to the encapsulated [Failure] value only if [test] returns
+  /// `true`. Otherwise, returns the original [Failure] unchanged.
+  /// If this is a [Success], returns it unchanged.
+  AsyncResultDart<S, F> recoverWhen(
+    bool Function(F failure) test,
+    FutureOr<ResultDart<S, F>> Function(F failure) onFailure,
+  ) {
+    return then(
+      (result) => result.fold(
+        Success.new,
+        (f) => test(f) ? onFailure(f) : Failure(f),
+      ),
+    );
+  }
 }
 
 /// Extension on `Future<S>` to convert it into an `AsyncResultDart<S, Exception>`.
@@ -183,29 +226,6 @@ extension FutureResultExtension<S extends Object> on Future<S> {
     try {
       final value = await this;
       return Success(value);
-    } on Exception catch (e) {
-      return Failure(e);
-    }
-  }
-}
-
-/// Extension on `Future<void>` to convert it into an `AsyncResultDart<Unit, Exception>`.
-///
-/// This extension provides a method `toAsyncResult` that wraps the completion
-/// of a `Future<void>` into a `Success` or `Failure` object. If the `Future`
-/// completes successfully, a `Success` containing `unit` is returned. If an
-/// exception occurs, the exception is wrapped in a `Failure`.
-///
-/// Example usage:
-/// ```dart
-/// Future<void> future = Future.value();
-/// AsyncResultDart<Unit, Exception> result = await future.toAsyncResult();
-/// ```
-extension FutureResultExtensionVoid on Future<void> {
-  AsyncResultDart<Unit, Exception> toAsyncResult() async {
-    try {
-      await this;
-      return Success(unit);
     } on Exception catch (e) {
       return Failure(e);
     }
