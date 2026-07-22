@@ -330,7 +330,7 @@ final class Success<S extends Object, F extends Object> //
 /// return it when the result of a [ResultDart] is
 /// not the expected value.
 @immutable
-final class Failure<S extends Object, F extends Object> //
+class Failure<S extends Object, F extends Object> //
     implements
         ResultDart<S, F> {
   /// Receives the [F] param as
@@ -501,5 +501,56 @@ final class Failure<S extends Object, F extends Object> //
       return onFailure(_failure);
     }
     return this;
+  }
+}
+
+/// A special [Failure] result type that represents something that can be loaded
+/// or submitted.
+///
+/// Together with the [LoadingResult], a result lifecycle can be formed that
+/// an async observer can consume:
+///  - [InitialResult]
+///  - loading triggered
+///  - [LoadingResult]
+///  - loading finished
+///  - [Result]
+///    - Can be [Success] or [Failure] depending on loading result
+final class InitialResult<S extends Object> extends Failure<S, InitialResultException> {
+  const InitialResult() : super(const InitialResultException());
+}
+
+/// A special [Failure] result type that represents something that is in the
+/// process of being loaded or submitted.
+///
+/// Together with the [InitialResult], a result lifecycle can be formed that
+/// an async observer can consume:
+///  - [InitialResult]
+///  - loading triggered
+///  - [LoadingResult]
+///  - loading finished
+///  - [Result]
+///    - Can be [Success] or [Failure] depending on loading result
+final class LoadingResult<S extends Object> extends Failure<S, LoadingResultException> {
+  const LoadingResult({this.subject}) : super(const LoadingResultException());
+
+  /// Object optionally representing what is being loaded
+  final Object? subject;
+}
+
+class LoadingResultException implements Exception {
+  const LoadingResultException();
+
+  @override
+  String toString() {
+    return 'Cannot access the result while it is loading';
+  }
+}
+
+class InitialResultException implements Exception {
+  const InitialResultException();
+
+  @override
+  String toString() {
+    return 'Cannot access the result before it is loaded';
   }
 }
