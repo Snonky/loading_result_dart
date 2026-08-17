@@ -164,6 +164,8 @@ final class Success<S extends Object, F extends Object> //
 
   final S _success;
 
+  S get value => _success;
+
   @override
   bool isError() => false;
 
@@ -346,6 +348,8 @@ class Failure<S extends Object, F extends Object> //
   }
 
   final F _failure;
+
+  F get error => _failure;
 
   @override
   bool isError() => true;
