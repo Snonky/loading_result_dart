@@ -519,8 +519,14 @@ class Failure<S extends Object, F extends Object> //
 ///  - loading finished
 ///  - [Result]
 ///    - Can be [Success] or [Failure] depending on loading result
+///
+/// Because it represents a state in the result lifecycle before a "real" result is known, the isError method of the
+/// initial result returns false.
 final class InitialResult<S extends Object> extends Failure<S, InitialResultException> {
   const InitialResult() : super(const InitialResultException());
+
+  @override
+  bool isError() => false;
 }
 
 /// A special [Failure] result type that represents something that is in the
@@ -534,11 +540,17 @@ final class InitialResult<S extends Object> extends Failure<S, InitialResultExce
 ///  - loading finished
 ///  - [Result]
 ///    - Can be [Success] or [Failure] depending on loading result
+///
+/// Because it represents a state in the result lifecycle before a "real" result is known, the isError method of the
+/// loading result returns false.
 final class LoadingResult<S extends Object> extends Failure<S, LoadingResultException> {
   const LoadingResult({this.subject}) : super(const LoadingResultException());
 
   /// Object optionally representing what is being loaded
   final Object? subject;
+
+  @override
+  bool isError() => false;
 }
 
 class LoadingResultException implements Exception {
